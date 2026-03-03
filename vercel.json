@@ -1,1 +1,28 @@
-
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/screener.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/screener",
+      "dest": "/api/screener.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
+  "functions": {
+    "api/screener.py": {
+      "maxDuration": 60
+    }
+  }
+}
