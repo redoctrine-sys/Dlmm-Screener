@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLMM Ghost Pool Screener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080c10;
+    --bg2:       #0c1118;
+    --bg3:       #111820;
+    --border:    #1e2d3d;
+    --border2:   #243447;
+    --green:     #00ff88;
+    --green2:    #00cc6a;
+    --green-dim: #003322;
+    --yellow:    #ffd700;
+    --yellow-dim:#2a2000;
+    --red:       #ff4455;
+    --red-dim:   #2a0010;
+    --blue:      #4a9eff;
+    --purple:    #cc88ff;
+    --purple-dim:#1a0a2a;
+    --cyan:      #00e5ff;
+    --text:      #c8d8e8;
+    --text-dim:  #5a7a8a;
+    --mono:      'Share Tech Mono', monospace;
+    --head:      'Rajdhani', sans-serif;
+    --display:   'Orbitron', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--head);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Scanline overlay ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ─── Header ─── */
+  header {
+    background: linear-gradient(135deg, #0a1520 0%, #0c1a28 100%);
+    border-bottom: 1px solid var(--border2);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    border: 2px solid var(--green);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 12px rgba(0,255,136,0.3);
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%,100% { box-shadow: 0 0 8px rgba(0,255,136,0.3); }
+    50% { box-shadow: 0 0 20px rgba(0,255,136,0.6); }
+  }
+
+  .logo-text {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 2px;
+    line-height: 1.2;
+  }
+
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--green);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  .status-dot.loading {
+    background: var(--yellow);
+    animation: spin-dot 1s linear infinite;
+  }
+
+  .status-dot.error { background: var(--red); animation: none; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  @keyframes spin-dot { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+  .timer-display {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .timer-display span { color: var(--yellow); }
+
+  /* ─── Stats bar ─── */
+  .stats-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--green);
+    transition: all 0.3s;
+  }
+
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.purple { color: var(--purple); }
+  .stat-value.red    { color: var(--red); }
+
+  .last-updated {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ─── Controls ─── */
+  .controls {
+    padding: 14px 24px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .tab-btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 18px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .tab-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  .tab-btn.active {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,136,0.15);
+  }
+
+  .tab-btn.steal.active {
+    background: rgba(204,136,255,0.08);
+    border-color: var(--purple);
+    color: var(--purple);
+    box-shadow: 0 0 12px rgba(204,136,255,0.15);
+  }
+
+  .refresh-btn {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 20px;
+    border-radius: 4px;
+    border: 1px solid var(--green);
+    background: rgba(0,255,136,0.06);
+    color: var(--green);
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(0,255,136,0.15);
+    box-shadow: 0 0 16px rgba(0,255,136,0.25);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+  }
+
+  .filter-input {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 14px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    width: 180px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .filter-input:focus { border-color: var(--blue); }
+  .filter-input::placeholder { color: var(--text-dim); }
+
+  /* ─── Main content ─── */
+  .main { padding: 20px 24px; }
+
+  /* ─── Table ─── */
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg2);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  thead tr {
+    background: #0d1924;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  th {
+    padding: 10px 12px;
+    text-align: left;
+    color: var(--text-dim);
+    font-weight: 400;
+    letter-spacing: 1px;
+    font-size: 10px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+  }
+
+  th:hover { color: var(--blue); }
+  th.sorted { color: var(--green); }
+
+  th .sort-arrow { margin-left: 4px; opacity: 0.5; }
+  th.sorted .sort-arrow { opacity: 1; }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(30,45,61,0.6);
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: rgba(74,158,255,0.04); }
+  tbody tr:last-child { border-bottom: none; }
+
+  /* Row type colors */
+  tbody tr.type-dlmm:hover  { background: rgba(0,255,136,0.04); }
+  tbody tr.type-damm:hover  { background: rgba(204,136,255,0.04); }
+  tbody tr.type-steal:hover { background: rgba(255,68,85,0.04); }
+
+  td {
+    padding: 10px 12px;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  /* Type badge */
+  .type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .badge-dlmm  { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-damm2 { background: rgba(204,136,255,0.1); color: var(--purple); border: 1px solid rgba(204,136,255,0.3); }
+  .badge-damm1 { background: rgba(74,158,255,0.1); color: var(--blue); border: 1px solid rgba(74,158,255,0.3); }
+
+  /* Score badge */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px; height: 24px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .score-hot   { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.4); }
+  .score-good  { background: rgba(255,215,0,0.12); color: var(--yellow); border: 1px solid rgba(255,215,0,0.4); }
+  .score-watch { background: rgba(74,158,255,0.12); color: var(--blue); border: 1px solid rgba(74,158,255,0.4); }
+  .score-skip  { background: rgba(90,100,120,0.12); color: var(--text-dim); border: 1px solid rgba(90,100,120,0.3); }
+
+  /* Action badge */
+  .action-badge {
+    padding: 3px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .action-masuk { background: rgba(0,255,136,0.12); color: var(--green); }
+  .action-buy   { background: rgba(0,255,136,0.08); color: var(--green2); }
+  .action-watch { background: rgba(255,215,0,0.08); color: var(--yellow); }
+  .action-skip  { background: rgba(90,100,120,0.08); color: var(--text-dim); }
+
+  /* Price change */
+  .chg-up   { color: var(--green); }
+  .chg-down { color: var(--red); }
+  .chg-zero { color: var(--text-dim); }
+
+  /* Vol/TVL bar */
+  .vt-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .vt-bar-track {
+    width: 40px; height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .vt-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--green);
+    transition: width 0.5s;
+  }
+
+  /* ─── Steal section ─── */
+  .steal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 14px;
+  }
+
+  .steal-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .steal-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--purple);
+  }
+
+  .steal-card.hot::before { background: var(--red); }
+
+  .steal-card:hover {
+    border-color: var(--purple);
+    box-shadow: 0 4px 20px rgba(204,136,255,0.1);
+    transform: translateY(-1px);
+  }
+
+  .steal-card.hot:hover {
+    border-color: var(--red);
+    box-shadow: 0 4px 20px rgba(255,68,85,0.15);
+  }
+
+  .steal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .steal-name {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--purple);
+  }
+
+  .steal-card.hot .steal-name { color: var(--red); }
+
+  .steal-strength {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background: rgba(204,136,255,0.1);
+    color: var(--purple);
+    border: 1px solid rgba(204,136,255,0.3);
+  }
+
+  .steal-card.hot .steal-strength {
+    background: rgba(255,68,85,0.1);
+    color: var(--red);
+    border-color: rgba(255,68,85,0.3);
+  }
+
+  .steal-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .steal-metric {
+    background: var(--bg3);
+    border-radius: 4px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .steal-metric-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 3px;
+  }
+
+  .steal-metric-value {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--yellow);
+  }
+
+  /* Ratio indicator */
+  .ratio-bar-wrap {
+    margin-bottom: 10px;
+  }
+
+  .ratio-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .ratio-track {
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .ratio-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--red), var(--yellow));
+    transition: width 0.6s ease;
+  }
+
+  .steal-rec {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--cyan);
+    padding: 6px 10px;
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.1);
+    border-radius: 4px;
+  }
+
+  .steal-addr {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ─── Detail modal ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 580px;
+    padding: 24px;
+    position: relative;
+    transform: translateY(20px);
+    transition: transform 0.2s;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none;
+    color: var(--text-dim); font-size: 20px;
+    cursor: pointer; line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .modal-close:hover { color: var(--text); }
+
+  .modal-title {
+    font-family: var(--display);
+    font-size: 20px;
+    color: var(--green);
+    margin-bottom: 4px;
+  }
+
+  .modal-pair {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+
+  .modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .modal-metric {
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 12px;
+  }
+
+  .modal-metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .modal-metric-value {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--green);
+  }
+
+  /* Score breakdown bars */
+  .score-breakdown { margin-bottom: 16px; }
+
+  .score-breakdown-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .score-row-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  .score-row-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .score-row-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--green);
+    transition: width 0.6s ease;
+  }
+
+  .score-row-val {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--yellow);
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .modal-addr {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--blue);
+    word-break: break-all;
+    padding: 8px;
+    background: var(--bg3);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    cursor: pointer;
+  }
+
+  .modal-addr:hover { color: var(--cyan); }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .modal-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    text-decoration: none;
+    text-align: center;
+    display: block;
+  }
+
+  .modal-btn.primary {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,255,136,0.06);
+  }
+
+  .modal-btn.primary:hover { background: rgba(0,255,136,0.14); }
+  .modal-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ─── Loading ─── */
+  .loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    gap: 20px;
+  }
+
+  .loading-logo {
+    font-family: var(--display);
+    font-size: 28px;
+    color: var(--green);
+    letter-spacing: 4px;
+    animation: flicker 2s ease-in-out infinite;
+  }
+
+  @keyframes flicker {
+    0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:0.4} 95%{opacity:1} 97%{opacity:0.7} 99%{opacity:1}
+  }
+
+  .loading-bar-wrap {
+    width: 280px;
+    height: 2px;
+    background: var(--bg3);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+    border-radius: 1px;
+    animation: load-sweep 1.8s ease-in-out infinite;
+  }
+
+  @keyframes load-sweep {
+    0%   { width: 0%; margin-left: 0; }
+    50%  { width: 60%; margin-left: 20%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  .loading-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    animation: dots 1.5s steps(3) infinite;
+  }
+
+  @keyframes dots {
+    0%  { content: 'FETCHING DATA.'; }
+    33% { content: 'FETCHING DATA..'; }
+    66% { content: 'FETCHING DATA...'; }
+  }
+
+  /* ─── Empty / Error ─── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* ─── Footer ─── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    letter-spacing: 1px;
+  }
+
+  /* ─── Tooltip ─── */
+  [data-tip] { position: relative; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a2a3a;
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .stats-bar { gap: 16px; }
+    .stat-value { font-size: 16px; }
+    .controls { gap: 8px; }
+    td:nth-child(n+7) { display: none; }
+    .steal-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎯</div>
+    <div>
+      <div class="logo-text">GHOST SCREENER</div>
+      <div class="logo-sub">DLMM + DAMM v2 · SOL-SIDE STRATEGY</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="timer-display">Refresh dalam <span id="countdown">5:00</span></div>
+    <div class="status-pill">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">READY</span>
+    </div>
+  </div>
+</header>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-label">Total Pool</span>
+    <span class="stat-value" id="stat-total">—</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">DLMM</span>
+    <span class="stat-value" id="stat-dlmm">—</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">DAMM</span>
+    <span class="stat-value purple" id="stat-damm">—</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Steal Opp</span>
+    <span class="stat-value red" id="stat-steal">—</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Score ≥ 65</span>
+    <span class="stat-value yellow" id="stat-hot">—</span>
+  </div>
+  <div class="last-updated" id="last-updated">—</div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <button class="tab-btn active" onclick="switchTab('all')" id="tab-all">All Pools</button>
+  <button class="tab-btn" onclick="switchTab('dlmm')" id="tab-dlmm">DLMM Only</button>
+  <button class="tab-btn" onclick="switchTab('damm')" id="tab-damm">DAMM Only</button>
+  <button class="tab-btn steal" onclick="switchTab('steal')" id="tab-steal">🎯 Steal Opps</button>
+  <input class="filter-input" type="text" placeholder="Filter token..." id="search-box" oninput="renderTable()">
+  <button class="refresh-btn" onclick="fetchData()" id="refresh-btn">⟳ Refresh</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- Loading -->
+  <div class="loading-screen" id="loading">
+    <div class="loading-logo">SCANNING POOLS</div>
+    <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+    <div class="loading-text">FETCHING DATA...</div>
+  </div>
+
+  <!-- Pool Table -->
+  <div id="pool-section" style="display:none">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('pool_type')" id="th-pool_type"># TYPE <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('name')" id="th-name">TOKEN <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('ghost_score')" id="th-ghost_score" class="sorted">SCORE <span class="sort-arrow">↓</span></th>
+            <th onclick="sortBy('action')">ACTION</th>
+            <th onclick="sortBy('tvl')" id="th-tvl">TVL <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('volume_24h')" id="th-volume_24h">VOL 24H <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('vol_tvl')" id="th-vol_tvl" data-tip="Volume / TVL — target 0.15x-0.60x">V/TVL <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('vol_mcap_pct')" id="th-vol_mcap_pct" data-tip="Volume / MCap % — target 2%-6%">V/MC% <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('mcap_tvl')" id="th-mcap_tvl" data-tip="MCap / TVL — tinggi = LP sudah kabur">MC/TVL <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('volatility_idx')" id="th-volatility_idx" data-tip="(High-Low)/Price × 100">VOLAT% <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('fee_apr_pct')" id="th-fee_apr_pct">FEE APR% <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('est_daily_fee')" id="th-est_daily_fee">FEE/HARI <span class="sort-arrow">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="pool-tbody"></tbody>
+      </table>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:10px;text-align:right" id="row-count"></div>
+  </div>
+
+  <!-- Steal section -->
+  <div id="steal-section" style="display:none">
+    <div class="steal-grid" id="steal-grid"></div>
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" onclick="document.getElementById('modal').classList.remove('open')">✕</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<footer>DLMM GHOST SCREENER · DATA: METEORA + DEXSCREENER · AUTO-REFRESH EVERY 5 MIN · ALL TIMES UTC</footer>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────
+let allData = { pools: [], steal_opps: [] };
+let currentTab = 'all';
+let sortKey = 'ghost_score';
+let sortDir = -1;  // -1 = desc, 1 = asc
+let refreshTimer = null;
+let countdownTimer = null;
+let nextRefresh = Date.now() + 5 * 60 * 1000;
+
+// ─── API URL — GANTI INI setelah deploy ke Vercel ───────────────
+// Saat development lokal: gunakan http://localhost:3000/api/screener
+// Setelah deploy: ganti dengan https://nama-proyekmu.vercel.app/api/screener
+const API_URL = '/api/screener';
+
+// ─── Format helpers ──────────────────────────────────────────────
+const fmt = {
+  usd:   v => v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v/1e3).toFixed(1)}K` : `$${v.toFixed(0)}`,
+  pct:   v => `${v.toFixed(1)}%`,
+  score: v => v,
+  ratio: v => `${v.toFixed(2)}x`,
+  price: v => v < 0.001 ? v.toExponential(3) : v < 1 ? v.toFixed(6) : v.toFixed(3),
+};
+
+function scoreClass(s) {
+  return s >= 65 ? 'score-hot' : s >= 50 ? 'score-good' : s >= 40 ? 'score-watch' : 'score-skip';
+}
+
+function actionClass(a) {
+  if (a.includes('MASUK')) return 'action-masuk';
+  if (a.includes('BUY'))   return 'action-buy';
+  if (a.includes('WATCH')) return 'action-watch';
+  return 'action-skip';
+}
+
+function typeHtml(t) {
+  if (t === 'DLMM')   return '<span class="type-badge badge-dlmm">DLMM</span>';
+  if (t === 'DAMM_V2') return '<span class="type-badge badge-damm2">DAMM V2</span>';
+  return '<span class="type-badge badge-damm1">DAMM V1</span>';
+}
+
+function vtBarHtml(vt) {
+  const pct = Math.min(100, (vt / 0.6) * 100);
+  const color = vt >= 0.15 && vt <= 0.6 ? 'var(--green)' : vt > 0.6 ? 'var(--yellow)' : 'var(--red)';
+  return `<div class="vt-bar">
+    <span>${fmt.ratio(vt)}</span>
+    <div class="vt-bar-track"><div class="vt-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+  </div>`;
+}
+
+// ─── Fetch ───────────────────────────────────────────────────────
+async function fetchData() {
+  setStatus('loading', 'SCANNING...');
+  document.getElementById('refresh-btn').disabled = true;
+
+  try {
+    const res = await fetch(API_URL + '?type=all');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    allData = data;
+
+    // Update stats
+    document.getElementById('stat-total').textContent = data.total || 0;
+    document.getElementById('stat-dlmm').textContent = data.dlmm_count || 0;
+    document.getElementById('stat-damm').textContent = data.damm_count || 0;
+    document.getElementById('stat-steal').textContent = data.steal_count || 0;
+    document.getElementById('stat-hot').textContent = (data.pools || []).filter(p => p.ghost_score >= 65).length;
+
+    const now = new Date();
+    document.getElementById('last-updated').textContent =
+      `Updated: ${now.toTimeString().slice(0,8)} UTC`;
+
+    setStatus('live', 'LIVE');
+    renderTable();
+    scheduleRefresh();
+
+  } catch (e) {
+    setStatus('error', 'ERROR');
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('pool-section').style.display = 'block';
+    document.getElementById('pool-tbody').innerHTML =
+      `<tr><td colspan="12"><div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div>Gagal load data: ${e.message}</div>
+        <div style="margin-top:8px;font-size:10px">Cek console untuk detail. Klik Refresh untuk coba lagi.</div>
+      </div></td></tr>`;
+  } finally {
+    document.getElementById('refresh-btn').disabled = false;
+  }
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot' + (state === 'loading' ? ' loading' : state === 'error' ? ' error' : '');
+  document.getElementById('status-text').textContent = text;
+}
+
+// ─── Auto refresh & countdown ────────────────────────────────────
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  clearInterval(countdownTimer);
+  nextRefresh = Date.now() + 5 * 60 * 1000;
+
+  refreshTimer = setTimeout(fetchData, 5 * 60 * 1000);
+
+  countdownTimer = setInterval(() => {
+    const remaining = Math.max(0, nextRefresh - Date.now());
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    document.getElementById('countdown').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (remaining === 0) clearInterval(countdownTimer);
+  }, 1000);
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  ['all','dlmm','damm','steal'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+  });
+  renderTable();
+}
+
+// ─── Sort ────────────────────────────────────────────────────────
+function sortBy(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = -1; }
+  document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+  const th = document.getElementById('th-'+key);
+  if (th) {
+    th.classList.add('sorted');
+    th.querySelector('.sort-arrow').textContent = sortDir === -1 ? '↓' : '↑';
+  }
+  renderTable();
+}
+
+// ─── Render ──────────────────────────────────────────────────────
+function renderTable() {
+  const loading = document.getElementById('loading');
+  const poolSec = document.getElementById('pool-section');
+  const stealSec = document.getElementById('steal-section');
+
+  loading.style.display = 'none';
+
+  if (currentTab === 'steal') {
+    poolSec.style.display = 'none';
+    stealSec.style.display = 'block';
+    renderSteal();
+    return;
+  }
+
+  poolSec.style.display = 'block';
+  stealSec.style.display = 'none';
+
+  const q = document.getElementById('search-box').value.toLowerCase();
+
+  let pools = allData.pools || [];
+
+  // Tab filter
+  if (currentTab === 'dlmm')  pools = pools.filter(p => p.pool_type === 'DLMM');
+  if (currentTab === 'damm')  pools = pools.filter(p => p.pool_type !== 'DLMM');
+
+  // Search filter
+  if (q) pools = pools.filter(p =>
+    p.name.toLowerCase().includes(q) || p.pair_name.toLowerCase().includes(q)
+  );
+
+  // Sort
+  pools = [...pools].sort((a, b) => {
+    const av = typeof a[sortKey] === 'string' ? a[sortKey] : (a[sortKey] || 0);
+    const bv = typeof b[sortKey] === 'string' ? b[sortKey] : (b[sortKey] || 0);
+    return sortDir * (typeof av === 'string' ? av.localeCompare(bv) : av - bv);
+  });
+
+  document.getElementById('row-count').textContent = `Menampilkan ${pools.length} pool`;
+
+  const tbody = document.getElementById('pool-tbody');
+  if (!pools.length) {
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <div>Tidak ada pool yang cocok dengan filter</div>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pools.map(p => {
+    const chgCls = p.price_change_24h > 0 ? 'chg-up' : p.price_change_24h < 0 ? 'chg-down' : 'chg-zero';
+    const chgStr = p.price_change_24h > 0 ? `+${p.price_change_24h.toFixed(1)}%` : `${p.price_change_24h.toFixed(1)}%`;
+    const rowCls = p.pool_type === 'DLMM' ? 'type-dlmm' : 'type-damm';
+    const mctvl = p.mcap_tvl > 0 ? `${p.mcap_tvl.toFixed(0)}x` : '—';
+    return `<tr class="${rowCls}" onclick="showDetail(${JSON.stringify(JSON.stringify(p))})">
+      <td>${typeHtml(p.pool_type)}</td>
+      <td>
+        <div style="font-weight:600;color:var(--text)">${p.name}</div>
+        <div style="font-size:10px;color:var(--text-dim)">${p.pair_name.slice(0,22)}</div>
+      </td>
+      <td><span class="score-badge ${scoreClass(p.ghost_score)}">${p.ghost_score}</span></td>
+      <td><span class="action-badge ${actionClass(p.action)}">${p.action}</span></td>
+      <td>${fmt.usd(p.tvl)}</td>
+      <td>
+        <div>${fmt.usd(p.volume_24h)}</div>
+        <div style="font-size:10px" class="${chgCls}">${chgStr}</div>
+      </td>
+      <td>${vtBarHtml(p.vol_tvl)}</td>
+      <td style="color:${p.vol_mcap_pct>=2&&p.vol_mcap_pct<=6?'var(--green)':'var(--text)'}">${fmt.pct(p.vol_mcap_pct)}</td>
+      <td style="color:${p.mcap_tvl>=80&&p.mcap_tvl<=300?'var(--green)':'var(--text)'}">${mctvl}</td>
+      <td style="color:${p.volatility_idx>=10&&p.volatility_idx<=20?'var(--green)':'var(--text)'}">${fmt.pct(p.volatility_idx)}</td>
+      <td style="color:${p.fee_apr_pct>=100?'var(--green)':p.fee_apr_pct>=50?'var(--yellow)':'var(--text)'}">${fmt.pct(p.fee_apr_pct)}</td>
+      <td style="color:var(--yellow)">$${p.est_daily_fee.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSteal() {
+  const q = document.getElementById('search-box').value.toLowerCase();
+  let opps = allData.steal_opps || [];
+  if (q) opps = opps.filter(s => s.token_name.toLowerCase().includes(q));
+
+  const grid = document.getElementById('steal-grid');
+  if (!opps.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-icon">😴</div>
+      <div>Tidak ada steal opportunity saat ini</div>
+      <div style="margin-top:8px;font-size:10px">Coba refresh atau longgarkan CONFIG di screener.py</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = opps.map(s => {
+    const isHot = s.steal_strength.includes('🔥🔥');
+    const ratio = Math.min(100, s.ratio_pct);
+    const chgCls = s.price_change_24h > 0 ? 'chg-up' : s.price_change_24h < 0 ? 'chg-down' : 'chg-zero';
+    return `<div class="steal-card ${isHot?'hot':''}" onclick="showStealDetail(${JSON.stringify(JSON.stringify(s))})">
+      <div class="steal-header">
+        <div class="steal-name">${s.token_name}</div>
+        <div class="steal-strength">${s.steal_strength}</div>
+      </div>
+      <div class="ratio-bar-wrap">
+        <div class="ratio-label">
+          <span>DLMM/DAMM Ratio: <strong>${s.ratio_pct.toFixed(1)}%</strong></span>
+          <span style="color:var(--text-dim)">${s.dlmm_tvl===0?'NO DLMM':''}</span>
+        </div>
+        <div class="ratio-track"><div class="ratio-fill" style="width:${ratio}%"></div></div>
+      </div>
+      <div class="steal-metrics">
+        <div class="steal-metric">
+          <span class="steal-metric-label">DAMM TVL</span>
+          <div class="steal-metric-value">${fmt.usd(s.damm_tvl)}</div>
+        </div>
+        <div class="steal-metric">
+          <span class="steal-metric-label">VOL 24H</span>
+          <div class="steal-metric-value">${fmt.usd(s.volume_24h)}</div>
+        </div>
+        <div class="steal-metric">
+          <span class="steal-metric-label">FEE/HARI</span>
+          <div class="steal-metric-value" style="color:var(--green)">$${s.est_daily_fee.toFixed(2)}</div>
+        </div>
+      </div>
+      <div class="steal-rec">📌 ${s.bin_rec} · Range ${s.range_rec}</div>
+      <div class="steal-addr">Pool: ${s.best_damm_addr}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Detail modal ─────────────────────────────────────────────────
+function showDetail(jsonStr) {
+  const p = JSON.parse(jsonStr);
+  const sd = p.score_detail || {};
+  const maxes = {vol_tvl: 25, vol_mcap: 20, mcap_tvl: 20, volatility: 20, fee_apr: 15};
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title">${p.name}</div>
+    <div class="modal-pair">${p.pair_name} · ${typeHtml(p.pool_type)} · Bin: ${p.bin_step||'—'} · Fee: ${p.fee_tier_pct}%</div>
+    <div class="modal-grid">
+      <div class="modal-metric">
+        <div class="modal-metric-label">Ghost Score</div>
+        <div class="modal-metric-value" style="font-size:28px">${p.ghost_score}<span style="font-size:14px;color:var(--text-dim)">/100</span></div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Action</div>
+        <div class="modal-metric-value"><span class="action-badge ${actionClass(p.action)}" style="font-size:16px">${p.action}</span></div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">TVL</div>
+        <div class="modal-metric-value">${fmt.usd(p.tvl)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Vol 24H</div>
+        <div class="modal-metric-value">${fmt.usd(p.volume_24h)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">MCap</div>
+        <div class="modal-metric-value">${p.mcap ? fmt.usd(p.mcap) : '—'}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Est Fee/Hari</div>
+        <div class="modal-metric-value" style="color:var(--yellow)">$${p.est_daily_fee.toFixed(2)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Fee APR</div>
+        <div class="modal-metric-value">${fmt.pct(p.fee_apr_pct)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Volatility</div>
+        <div class="modal-metric-value">${fmt.pct(p.volatility_idx)}</div>
+      </div>
+    </div>
+
+    <div class="score-breakdown">
+      <div class="score-breakdown-title">SCORE BREAKDOWN</div>
+      ${Object.entries({vol_tvl:'Vol/TVL',vol_mcap:'Vol/MCap',mcap_tvl:'MCap/TVL',volatility:'Volatility',fee_apr:'Fee APR'}).map(([k,label])=>{
+        const v = sd[k] || 0;
+        const max = maxes[k];
+        const pct = (v/max)*100;
+        return `<div class="score-row">
+          <div class="score-row-label">${label}</div>
+          <div class="score-row-track"><div class="score-row-fill" style="width:${pct}%"></div></div>
+          <div class="score-row-val">${v}/${max}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="font-family:var(--mono);font-size:10px;color:var(--cyan);margin-bottom:8px">
+      📌 ${p.bin_rec} ${p.steal_opp ? ' · '+p.steal_opp : ''}
+    </div>
+    <div class="modal-addr" onclick="copyAddr('${p.pool_address}')" title="Klik untuk copy">
+      📋 ${p.pool_address || '—'}
+    </div>
+    <div class="modal-actions">
+      <a class="modal-btn primary" href="https://app.meteora.ag/dlmm/${p.pool_address}" target="_blank">Buka di Meteora →</a>
+      <a class="modal-btn" href="https://dexscreener.com/solana/${p.token_mint}" target="_blank">DexScreener →</a>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function showStealDetail(jsonStr) {
+  const s = JSON.parse(jsonStr);
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-title" style="color:var(--purple)">${s.token_name}</div>
+    <div class="modal-pair">Steal Opportunity · ${s.damm_type}</div>
+    <div style="margin:12px 0;padding:10px;background:rgba(255,68,85,0.08);border:1px solid rgba(255,68,85,0.3);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--red)">
+      ${s.steal_strength}
+    </div>
+    <div class="modal-grid">
+      <div class="modal-metric">
+        <div class="modal-metric-label">DAMM TVL</div>
+        <div class="modal-metric-value" style="color:var(--purple)">${fmt.usd(s.damm_tvl)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">DLMM TVL</div>
+        <div class="modal-metric-value" style="color:var(--text-dim)">${fmt.usd(s.dlmm_tvl)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Ratio DLMM/DAMM</div>
+        <div class="modal-metric-value" style="color:var(--red)">${s.ratio_pct.toFixed(1)}%</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Vol 24H di DAMM</div>
+        <div class="modal-metric-value">${fmt.usd(s.volume_24h)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Est Fee/Hari jika Steal</div>
+        <div class="modal-metric-value" style="color:var(--green)">$${s.est_daily_fee.toFixed(2)}</div>
+      </div>
+      <div class="modal-metric">
+        <div class="modal-metric-label">Volatility</div>
+        <div class="modal-metric-value">${fmt.pct(s.volatility)}</div>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--cyan);padding:10px;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.1);border-radius:6px;margin-bottom:12px">
+      📌 ${s.bin_rec} · Range: ${s.range_rec}<br>
+      → Buat DLMM baru di Meteora dengan pair yang sama
+    </div>
+    <div class="modal-addr" onclick="copyAddr('${s.best_damm_addr}')" title="Klik untuk copy address DAMM">
+      📋 DAMM Pool: ${s.best_damm_addr || '—'}
+    </div>
+    <div class="modal-actions">
+      <a class="modal-btn primary" href="https://app.meteora.ag/dlmm/create" target="_blank">Buat DLMM Baru →</a>
+      <a class="modal-btn" href="https://dexscreener.com/solana/${s.token_mint}" target="_blank">DexScreener →</a>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open');
+}
+
+function copyAddr(addr) {
+  navigator.clipboard.writeText(addr).then(() => {
+    const el = event.target;
+    const orig = el.textContent;
+    el.textContent = '✓ Copied!';
+    el.style.color = 'var(--green)';
+    setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 1500);
+  });
+}
+
+// ─── Init ────────────────────────────────────────────────────────
+fetchData();
+</script>
+</body>
+</html>

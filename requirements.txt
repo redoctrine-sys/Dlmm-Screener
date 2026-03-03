@@ -1,0 +1,5 @@
+# Tidak ada dependency eksternal!
+# screener.py hanya pakai library bawaan Python:
+# - urllib.request (HTTP requests)
+# - json, time, collections (semua built-in)
+# Ini sengaja agar Vercel deploy lebih cepat dan tidak ada masalah install
